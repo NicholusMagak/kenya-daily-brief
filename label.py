@@ -22,6 +22,9 @@ LABELLER = "model"
 # labels from different rubric versions are never compared.
 RUBRIC_VERSION = "v1.0-headline-standfirst"
 
+# Rubric §7. Enforced here rather than in the JSON schema.
+MAX_ENTITIES = 3
+
 SUBJECT_TYPES = [
     "person",
     "organisation",
@@ -110,9 +113,10 @@ confident call."""
 SCHEMA = {
     "type": "object",
     "properties": {
+        # No maxItems: structured outputs rejects it on arrays. The cap of three
+        # is instructed in the prompt and enforced client-side in label_article.
         "labels": {
             "type": "array",
-            "maxItems": 3,
             "items": {
                 "type": "object",
                 "properties": {
@@ -185,7 +189,7 @@ def label_article(client, article):
     except (StopIteration, KeyError, json.JSONDecodeError) as error:
         return [], "error", f"unparseable response: {error}"
 
-    return labels, "ok", ""
+    return labels[:MAX_ENTITIES], "ok", ""
 
 
 def main():
