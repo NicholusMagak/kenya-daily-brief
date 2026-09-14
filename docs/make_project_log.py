@@ -323,34 +323,79 @@ head_table(
 
 # ---------------------------------------------------------------- deliverables
 doc.add_heading("8. Produced so far", level=1)
+doc.add_paragraph(
+    "The scope decision was taken: label on headline plus standfirst, and narrow the "
+    "rubric to say so explicitly, rather than applying a full-article rubric to 220 "
+    "characters and hoping nobody checks."
+)
 head_table(
     doc,
     ["File", "Contents"],
     [
         (
             "docs\\SENTIMENT.md",
-            "The label definition. Chosen definition, the schema, three class "
-            "definitions, nine decision rules for the cases that actually decide the "
-            "number, confidence bands, entity-selection test, annotation protocol, "
-            "stated limits, and the labelling prompt derived from the rules.",
+            "The label definition, version v1.0-headline-standfirst. Chosen definition, "
+            "schema, three class definitions, nine decision rules, confidence bands, "
+            "entity-selection test, annotation protocol and stated limits. Opens by "
+            "stating exactly what the labeller sees.",
         ),
         (
-            "docs\\README-sentiment-section.md",
-            "Drop-in README section: the definition in brief, the agreement table ready "
-            "for real numbers, and the argument against off-the-shelf models.",
+            "store.py",
+            "SQLite corpus — articles, labels, and a run audit table. Model and human "
+            "labels coexist per (article, entity) because labeller is part of the "
+            "primary key, which is what the agreement measurement needs. Also exports "
+            "the three scoring CSVs.",
+        ),
+        (
+            "label.py",
+            "LLM labeller. claude-opus-5, adaptive thinking, structured output pinned "
+            "to the schema. Handles refusals explicitly and records every attempt.",
+        ),
+        (
+            "handcheck.py",
+            "Blind adjudication CLI. Shows headline, standfirst and entity; hides the "
+            "model's tone, confidence and evidence. Resumable on a fixed seed.",
         ),
         (
             "docs\\agreement.py",
             "Scorer. Raw agreement, Cohen's κ, 3×3 confusion matrix, per-class "
-            "agreement, agreement by confidence band, prior re-weighting, and a "
+            "agreement, agreement by confidence band, corpus-prior re-weighting, and a "
             "disagreement listing with direction.",
         ),
         (
             "build_news.py",
-            "Baseline copy of the deployed generator, committed unmodified.",
+            "Rewired: fetch → store → render, with tone badges on each card.",
+        ),
+        (
+            "README.md",
+            "Includes the definition, the agreement table, and the case against "
+            "off-the-shelf sentiment models.",
+        ),
+        (
+            "update_news.sh",
+            "Adds venv activation, the API key env file, and a labelling pass that is "
+            "non-fatal — a labelling failure must not take the site down.",
         ),
     ],
-    widths=(2.1, 4.1),
+    widths=(1.7, 4.5),
+)
+
+doc.add_heading("8.1  Testing", level=2)
+doc.add_paragraph(
+    "The pipeline was run end to end locally against a copy of the corpus with "
+    "synthetic labels, so the whole chain was exercised before any API key was "
+    "involved: 26 stories fetched, 25 stored (the failed-feed card correctly excluded), "
+    "51 labels injected, adjudication driven with scripted input, CSVs exported, and the "
+    "scorer run. Tone badges were confirmed to render."
+)
+doc.add_paragraph(
+    "That test found a real bug. save_labels() deletes an article's existing labels for "
+    "a labeller before inserting — correct for the model, which emits every entity in "
+    "one response, but wrong for the human, who adjudicates one entity at a time. Where "
+    "the sample contained two entities from the same article, recording the second "
+    "silently erased the first: ten adjudications, eight rows stored. Fixed by adding "
+    "upsert_label() for single-pair writes. This is exactly the class of bug that would "
+    "have quietly corrupted the agreement number rather than announcing itself."
 )
 
 # ---------------------------------------------------------------- outstanding
@@ -367,24 +412,60 @@ doc.add_paragraph(
 )
 
 p = doc.add_paragraph()
-r = p.add_run("Open decision: ")
+r = p.add_run("Also needed from you: ")
 r.bold = True
 p.add_run(
-    "whether to label on headline plus standfirst only (cheap, self-contained, but "
-    "thinner evidence), or to fetch article bodies from the source links (faithful to the "
-    "full rubric, but adds scraping, fragility, and a slower cron). Recommendation is the "
-    "former, with the rubric explicitly scoped to the evidence actually available."
+    "an Anthropic API key, to be placed in /etc/kenya-news.env on the VM (root-owned, "
+    "chmod 600). It is excluded from git."
 )
 
-doc.add_paragraph("Remaining build:")
+doc.add_heading("9.1  Where the data lives", level=2)
+doc.add_paragraph(
+    "Three places, and it is worth being precise about which is authoritative:"
+)
+head_table(
+    doc,
+    ["Location", "What, and whose"],
+    [
+        (
+            "VM persistent disk\n/opt/kenya-news/kenya_news.db",
+            "The master corpus, once deployed. Your GCP project, Google's "
+            "infrastructure, in the VM's region. Cron appends to it daily, so it is the "
+            "only copy that stays current.",
+        ),
+        (
+            "D:\\kenya-daily-brief\\",
+            "The code, under git — authoritative for source. Also currently holds a "
+            "25-article database from local testing, which will diverge from the VM "
+            "once deployed and should be treated as scratch.",
+        ),
+        (
+            "Anthropic API",
+            "Headline and standfirst are sent for labelling. Public news text, but it "
+            "does leave your infrastructure. Nothing else is transmitted.",
+        ),
+    ],
+    widths=(2.1, 4.1),
+)
+doc.add_paragraph(
+    "Recommended split, so no file is authoritative in two places: code flows from D: to "
+    "the VM, data flows from the VM to D:. Run the hand-check over SSH against the VM's "
+    "database rather than pulling it down, adjudicating locally, and pushing it back — "
+    "cron writes to that file every morning, and a push-back would clobber whatever it "
+    "added. Pull copies down for backup and analysis freely; just do not write to them "
+    "and send them back."
+)
+doc.add_paragraph(
+    "Volume is negligible: roughly 25–30 articles a day, a few megabytes a year."
+)
+
+doc.add_heading("9.2  Remaining", level=2)
 for t in [
-    "store.py — SQLite article and label storage (must come first)",
-    "label.py — Anthropic labelling against the frozen rubric, structured output",
-    "handcheck.py — blind adjudication CLI for the 50-pair sample",
-    "build_news.py — integrate fetch → store → label → render",
-    "Display tone in the rendered cards",
-    "Virtual environment, requirements.txt, API key placement, update_news.sh changes",
-    "Deploy back to the VM once reviewed",
+    "Deploy the reviewed code to /opt/kenya-news and create the venv",
+    "Run label.py against the corpus once the key is in place",
+    "Accumulate enough articles to draw 50 (article, entity) pairs — about two days",
+    "Run the blind hand-check and fill the agreement table in README.md",
+    "Consider a second adjudicator, which would give a human–human ceiling",
 ]:
     doc.add_paragraph(t, style="List Bullet")
 
