@@ -42,5 +42,6 @@ else
 fi
 
 sudo cp "$APP_DIR/index.html" /var/www/html/index.html
+sudo cp "$APP_DIR/sentiment.html" /var/www/html/sentiment.html
 
 echo "Finished Kenya news update at $(date)"

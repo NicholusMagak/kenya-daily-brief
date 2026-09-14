@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import re
 import urllib.request
 import xml.etree.ElementTree as ET
 from html import escape
@@ -363,7 +364,8 @@ def build_html(stories, labels_by_article):
   <footer>
     Tone labels are entity-scoped: they describe the stance each item takes
     toward a named person or body, not whether the news is good or bad.
-    Labelled from headline and standfirst only, against a written rubric.<br>
+    Labelled from headline and standfirst only, against a
+    <a href="/sentiment.html" style="color:#16a34a">written definition</a>.<br>
     Built with Google Cloud Free Tier, RSS, Python and shell script.
   </footer>
 </body>
@@ -384,6 +386,32 @@ def main():
 
     labelled = sum(1 for s in stories if labels_by_article.get(s.get("id")))
     print(f"{len(stories)} stories, {new} new, {labelled} with tone labels -> {OUTPUT}")
+
+    # The definition the footer links to. Rendered from the same SENTIMENT.md
+    # the labeller is prompted from, so the published page cannot drift from
+    # the rubric actually in use.
+    # Flat beside the script on the VM; under docs/ in the git working copy.
+    here = os.path.dirname(os.path.abspath(__file__))
+    rubric = next(
+        (p for p in (os.path.join(here, "SENTIMENT.md"),
+                     os.path.join(here, "docs", "SENTIMENT.md"))
+         if os.path.exists(p)),
+        os.path.join(here, "SENTIMENT.md"),
+    )
+    if os.path.exists(rubric):
+        import render_doc
+
+        html = render_doc.page(
+            render_doc.render(re.sub(r"\A#\s+.*\n", "", open(rubric, encoding="utf-8").read())),
+            "The sentiment label definition",
+            "How tone is defined, and the rules used to decide it",
+        )
+        with open(os.path.join(os.path.dirname(OUTPUT), "sentiment.html"), "w",
+                  encoding="utf-8") as file:
+            file.write(html)
+        print(f"rendered sentiment.html from {os.path.basename(rubric)}")
+    else:
+        print(f"note: {rubric} not found — sentiment.html not refreshed")
 
 if __name__ == "__main__":
     main()
