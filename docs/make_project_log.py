@@ -401,22 +401,10 @@ doc.add_paragraph(
 # ---------------------------------------------------------------- outstanding
 doc.add_heading("9. Outstanding", level=1)
 
-p = doc.add_paragraph()
-r = p.add_run("Blocked on you: ")
-r.bold = True
-p.add_run("gcloud authentication. Run in the Claude prompt:")
-code_block(doc, "! /home/mnm/google-cloud-sdk/bin/gcloud auth login --no-launch-browser")
 doc.add_paragraph(
-    "Until this is done, files can only move between the VM and the working copy by "
-    "copy-paste, and changes cannot be tested against the live box."
-)
-
-p = doc.add_paragraph()
-r = p.add_run("Also needed from you: ")
-r.bold = True
-p.add_run(
-    "an Anthropic API key, to be placed in /etc/kenya-news.env on the VM (root-owned, "
-    "chmod 600). It is excluded from git."
+    "Both prerequisites are now complete: gcloud is authenticated against project "
+    "kenyan-ai-news-summary, and the API key is in /etc/kenya-news.env on the VM. The "
+    "system is deployed and live — see section 10."
 )
 
 doc.add_heading("9.1  Where the data lives", level=2)
@@ -461,20 +449,89 @@ doc.add_paragraph(
 
 doc.add_heading("9.2  Remaining", level=2)
 for t in [
-    "Deploy the reviewed code to /opt/kenya-news and create the venv",
-    "Run label.py against the corpus once the key is in place",
-    "Accumulate enough articles to draw 50 (article, entity) pairs — about two days",
-    "Run the blind hand-check and fill the agreement table in README.md",
+    "Accumulate enough articles to draw 50 (article, entity) pairs — 30 exist, so one "
+    "more 06:30 cron run should clear it",
+    "Run the blind hand-check (handcheck.py, over an interactive SSH session)",
+    "Fill the agreement table in README.md with the measured figures",
     "Consider a second adjudicator, which would give a human–human ceiling",
 ]:
     doc.add_paragraph(t, style="List Bullet")
+
+# ---------------------------------------------------------------- deployment
+doc.add_heading("10. Deployment and first labelling run", level=1)
+doc.add_paragraph(
+    "Deployed to kenya-news-vm (us-west1-a, e2-micro, free tier). The live files were "
+    "backed up first as *.bak-20260914-1244, so the previous version can be restored "
+    "with three cp commands. Two environment problems surfaced and were fixed: the "
+    "Ubuntu image was minimized and had no ensurepip, so python3.14-venv had to be "
+    "installed before a virtual environment could be created; and the API key file had "
+    "been placed root-owned at chmod 600, which the cron job — running under the user "
+    "crontab, not root's — could not read, so labelling would have silently skipped "
+    "every morning. Ownership was moved to the cron user."
+)
+doc.add_paragraph(
+    "Two code bugs were found by running against the real API, both of which would have "
+    "failed quietly rather than loudly:"
+)
+for t in [
+    "An errored labelling attempt permanently retired an article from the queue, because "
+    "the pending query excluded any article with any prior run record. All 20 articles "
+    "that failed on a billing error would never have been retried. Only 'ok' and "
+    "'refused' are final now.",
+    "The output schema used maxItems on an array, which structured outputs rejects. The "
+    "three-entity cap moved to the prompt and a client-side trim.",
+]:
+    doc.add_paragraph(t, style="List Bullet")
+
+doc.add_heading("10.1  First results", level=2)
+kv_table(
+    doc,
+    [
+        ("Articles labelled", "20, producing 30 (article, entity) pairs, in 84 seconds"),
+        ("Tone distribution", "20.0% negative · 56.7% neutral · 23.3% positive"),
+        ("Articles given zero labels", "3"),
+        ("Live", "Published to /var/www/html/index.html, 17 badged cards"),
+    ],
+)
+doc.add_paragraph(
+    "The neutral share sitting above 50% is the first indication that the labeller is "
+    "scoring stance rather than event valence, which is what the rubric spends R1, R2 "
+    "and R3 trying to enforce."
+)
+doc.add_paragraph(
+    "Three cases chosen in advance as tests of the rules all came back correct: "
+    "\u201cSifuna accuses Ruto of undermining devolution\u201d returned neutral toward "
+    "both parties (R2 — the verb carries the attribution); \u201cRuto's Tata Chemicals "
+    "tantrum spooks investors\u201d returned negative toward Ruto at 0.95, citing the "
+    "headline (R9 — \u201ctantrum\u201d is the publication's word); and \u201cBabu Owino "
+    "pledges good service\u201d returned neutral (R6 — an attributed promise, not one "
+    "the text adopts)."
+)
+doc.add_paragraph(
+    "More telling, three articles were correctly given no labels at all, including "
+    "\u201cWoman killed in hit and run at Jacaranda rally\u201d and \u201c16 injured, "
+    "vehicles damaged as Golbo protests force suspension of land registration\u201d. "
+    "Both are violent events with no blame attributed and no named entity to attach it "
+    "to (R1, R5). An off-the-shelf review-trained classifier would score both strongly "
+    "negative. That is the argument of the README's final section, now demonstrated "
+    "rather than asserted."
+)
+
+p = doc.add_paragraph()
+r = p.add_run("These three canaries are not a measurement. ")
+r.bold = True
+p.add_run(
+    "They were hand-picked in advance, and three cases chosen by the person who wrote "
+    "the rules prove only that the rules are implementable. The agreement table in "
+    "README.md stays marked pending until 50 pairs have been adjudicated blind."
+)
 
 # ---------------------------------------------------------------- footer
 doc.add_paragraph()
 foot = doc.add_paragraph()
 fr = foot.add_run(
-    "Nothing on the live VM has been modified. All work so far is local to "
-    "D:\\kenya-daily-brief and under git."
+    "Live at http://8.231.166.151/ · working copy D:\\kenya-daily-brief under git · "
+    "previous version recoverable from *.bak-20260914-1244 on the VM."
 )
 fr.italic = True
 fr.font.size = Pt(9)
