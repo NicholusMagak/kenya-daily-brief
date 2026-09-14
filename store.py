@@ -171,14 +171,27 @@ def record_run(conn, aid, labeller, status, detail=""):
     )
 
 
-def unlabelled(conn, labeller, limit=None):
-    """Articles this labeller has never been run against."""
+# A run with one of these statuses is final; anything else is retried on the
+# next pass. Errors are transient by nature — an expired key, no credit, a
+# network blip — and must not permanently retire an article from the queue.
+FINAL_STATUSES = ("ok", "refused")
+
+
+def unlabelled(conn, labeller, limit=None, retry_errors=True):
+    """Articles still needing this labeller.
+
+    Excludes articles already labelled or refused. Articles whose last attempt
+    errored come back unless retry_errors is False.
+    """
+    final = FINAL_STATUSES if retry_errors else ("ok", "refused", "error")
+    placeholders = ",".join("?" * len(final))
     sql = (
         "SELECT * FROM articles WHERE id NOT IN"
-        " (SELECT article_id FROM label_runs WHERE labeller = ?)"
+        f" (SELECT article_id FROM label_runs WHERE labeller = ?"
+        f"  AND status IN ({placeholders}))"
         " ORDER BY first_seen"
     )
-    params = [labeller]
+    params = [labeller, *final]
     if limit:
         sql += " LIMIT ?"
         params.append(limit)

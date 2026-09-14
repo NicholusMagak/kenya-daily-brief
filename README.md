@@ -166,7 +166,7 @@ makes no API call. Use it after any rubric edit.
   .venv/                    # python3 -m venv /opt/kenya-news/.venv
   kenya_news.db             # the corpus
   update_news.sh            # cron: 30 6 * * *
-/etc/kenya-news.env         # ANTHROPIC_API_KEY, chmod 600, root-owned
+/etc/kenya-news.env         # ANTHROPIC_API_KEY, chmod 600, owned by the cron user
 /var/www/html/index.html    # published output
 ```
 

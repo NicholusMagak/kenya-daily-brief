@@ -8,8 +8,11 @@ echo "Starting Kenya news update at $(date)"
 
 cd "$APP_DIR"
 
-# The API key. Root-owned, chmod 600, never in git.
-# Create with:  printf 'ANTHROPIC_API_KEY=sk-ant-...\n' | sudo tee /etc/kenya-news.env
+# The API key. chmod 600, owned by the user this cron job runs as — root
+# ownership would make it unreadable here, and labelling would silently skip.
+# Create with:
+#   printf 'ANTHROPIC_API_KEY=sk-ant-...\n' | sudo tee /etc/kenya-news.env
+#   sudo chown "$USER:$USER" /etc/kenya-news.env && sudo chmod 600 /etc/kenya-news.env
 if [ -f /etc/kenya-news.env ]; then
     set -a
     . /etc/kenya-news.env
